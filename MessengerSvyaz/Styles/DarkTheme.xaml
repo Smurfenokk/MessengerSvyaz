@@ -1,0 +1,93 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:converters="clr-namespace:MessengerSvyaz.Converters">
+
+    <Color x:Key="BgDark">#1a1a1a</Color>
+    <Color x:Key="BgMedium">#2d2d2d</Color>
+    <Color x:Key="BgLight">#404040</Color>
+    <Color x:Key="BgLighter">#505050</Color>
+    <Color x:Key="TextLight">#ffffff</Color>
+    <Color x:Key="TextMuted">#cccccc</Color>
+    <Color x:Key="AccentBlue">#3498db</Color>
+    <Color x:Key="AccentGreen">#16c96a</Color>
+    <Color x:Key="AccentRed">#e74c3c</Color>
+    <Color x:Key="AccentYellow">#f1c40f</Color>
+    <Color x:Key="AccentOrange">#e67e22</Color>
+
+    <SolidColorBrush x:Key="BgDarkBrush" Color="{StaticResource BgDark}"/>
+    <SolidColorBrush x:Key="BgMediumBrush" Color="{StaticResource BgMedium}"/>
+    <SolidColorBrush x:Key="BgLightBrush" Color="{StaticResource BgLight}"/>
+    <SolidColorBrush x:Key="BgLighterBrush" Color="{StaticResource BgLighter}"/>
+    <SolidColorBrush x:Key="TextLightBrush" Color="{StaticResource TextLight}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}"/>
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}"/>
+    <SolidColorBrush x:Key="AccentGreenBrush" Color="{StaticResource AccentGreen}"/>
+    <SolidColorBrush x:Key="AccentRedBrush" Color="{StaticResource AccentRed}"/>
+    <SolidColorBrush x:Key="AccentYellowBrush" Color="{StaticResource AccentYellow}"/>
+    <SolidColorBrush x:Key="AccentOrangeBrush" Color="{StaticResource AccentOrange}"/>
+
+    <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+    <converters:OnlineStatusConverter x:Key="OnlineStatusConverter"/>
+    <converters:BoolToStringConverter x:Key="BoolToStringConverter"/>
+    <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+    <!-- УДАЛЕНА ДУБЛИРУЮЩАЯ СТРОКА StringToVisibilityConverter -->
+    <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+    <converters:TimestampToTimeConverter x:Key="TimestampToTimeConverter"/>
+    <converters:MessageAlignmentConverter x:Key="MessageAlignmentConverter"/>
+    <converters:MessageBackgroundConverter x:Key="MessageBackgroundConverter"/>
+    <converters:SupportTypeToAlignmentConverter x:Key="SupportTypeToAlignmentConverter"/>
+    <converters:SupportTypeToBrushConverter x:Key="SupportTypeToBrushConverter"/>
+    <converters:RoleToStringConverter x:Key="RoleToStringConverter"/>
+    <converters:ReactionConverter x:Key="ReactionConverter"/>
+    <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+    <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    <converters:EmptyStringToVisibilityConverter x:Key="EmptyStringToVisibilityConverter"/>
+    <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
+    <converters:SenderToAlignmentConverter x:Key="SenderToAlignmentConverter"/>
+    <converters:SenderToBrushConverter x:Key="SenderToBrushConverter"/>
+    <converters:GroupSenderToAlignmentConverter x:Key="GroupSenderToAlignmentConverter"/>
+    <converters:GroupSenderToBrushConverter x:Key="GroupSenderToBrushConverter"/>
+    <converters:FileTypeToImageVisibilityConverter x:Key="FileTypeToImageVisibilityConverter"/>
+    <converters:FileTypeToFileVisibilityConverter x:Key="FileTypeToFileVisibilityConverter"/>
+    <converters:FirstCharConverter x:Key="FirstCharConverter"/>
+    <converters:FileSizeConverter x:Key="FileSizeConverter"/>
+    <!-- УДАЛЕНА ДУБЛИРУЮЩАЯ СТРОКА - была здесь повторно -->
+
+    <Style TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource BgDarkBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+    </Style>
+
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BgLighterBrush}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource TextLightBrush}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBlueBrush}"/>
+    </Style>
+
+    <Style TargetType="PasswordBox">
+        <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BgLighterBrush}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource TextLightBrush}"/>
+    </Style>
+
+    <Style TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextLightBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="10"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style TargetType="ScrollViewer">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+    </Style>
+
+</ResourceDictionary>

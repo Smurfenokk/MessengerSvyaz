@@ -1,0 +1,87 @@
+﻿<UserControl x:Class="MessengerSvyaz.Views.GroupInfoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:MessengerSvyaz.Converters"
+             Background="{StaticResource BgDarkBrush}">
+
+    <UserControl.Resources>
+        <converters:FirstCharConverter x:Key="FirstCharConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <Button Command="{Binding GoBackCommand}" 
+                Background="Transparent" Foreground="{StaticResource AccentBlueBrush}"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20" Padding="10">
+            <TextBlock Text="← Назад"/>
+        </Button>
+
+        <Border Width="500" Background="{StaticResource BgMediumBrush}" CornerRadius="10" 
+                Padding="40" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel>
+                <Border Width="80" Height="80" Background="{StaticResource AccentBlueBrush}" 
+                        CornerRadius="40" HorizontalAlignment="Center" Margin="0,0,0,20">
+                    <TextBlock Text="{Binding GroupName, Converter={StaticResource FirstCharConverter}}" 
+                               FontSize="36" FontWeight="Bold" Foreground="White" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+
+                <TextBlock Text="{Binding GroupName}" FontSize="24" FontWeight="Bold" 
+                           Foreground="{StaticResource TextLightBrush}" HorizontalAlignment="Center" Margin="0,0,0,30"/>
+
+                <Grid Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                        <TextBlock Text="Всего участников:" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                        <TextBlock Text="{Binding MembersCount}" FontSize="20" FontWeight="Bold" 
+                                   Foreground="{StaticResource TextLightBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                        <TextBlock Text="Создатель:" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                        <TextBlock Text="{Binding CreatorName}" FontSize="20" FontWeight="Bold" 
+                                   Foreground="{StaticResource AccentBlueBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                        <TextBlock Text="ID группы:" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                        <TextBlock Text="{Binding GroupIdDisplay}" FontSize="20" FontWeight="Bold" 
+                                   Foreground="{StaticResource TextLightBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Участники" FontSize="16" FontWeight="SemiBold" 
+                           Foreground="{StaticResource TextLightBrush}" Margin="0,20,0,10"/>
+
+                <ScrollViewer MaxHeight="200">
+                    <ItemsControl ItemsSource="{Binding Members}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource BgLightBrush}" CornerRadius="5" 
+                                        Margin="0,0,0,5" Padding="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding}" Foreground="{StaticResource TextLightBrush}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="🗑️" 
+                                                Command="{Binding DataContext.RemoveMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" Foreground="{StaticResource AccentRedBrush}"
+                                                Visibility="{Binding DataContext.IsCreator, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

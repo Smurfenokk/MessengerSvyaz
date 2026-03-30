@@ -1,0 +1,100 @@
+﻿<UserControl x:Class="MessengerSvyaz.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:MessengerSvyaz.Converters"
+             Background="{StaticResource BgDarkBrush}">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <converters:InverseStringToVisibilityConverter x:Key="InverseStringToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid>
+        <Border Width="450" Background="{StaticResource BgMediumBrush}" 
+                CornerRadius="10" Padding="30" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel>
+                <TextBlock Text="Связь" FontSize="28" FontWeight="Bold" 
+                           Foreground="{StaticResource AccentBlueBrush}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+
+                <StackPanel Visibility="{Binding IsRegistering, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <TextBlock Text="Вход" FontSize="20" FontWeight="SemiBold" 
+                               Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,15"/>
+
+                    <TextBlock Text="Имя пользователя" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <TextBox x:Name="UsernameBox" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" 
+                             Padding="10" Margin="0,0,0,10" KeyDown="InputBox_KeyDown"/>
+
+                    <TextBlock Text="Пароль" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <PasswordBox x:Name="PasswordBox" Padding="10" Margin="0,0,0,15" KeyDown="InputBox_KeyDown"/>
+
+                    <Button Content="Войти" Command="{Binding LoginCommand}" 
+                            Background="{StaticResource AccentBlueBrush}" Foreground="White" 
+                            Padding="12" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Нет аккаунта?" Foreground="{StaticResource TextMutedBrush}" 
+                               HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                    <Button Content="Зарегистрироваться" Command="{Binding ToggleModeCommand}" 
+                            Background="Transparent" Foreground="{StaticResource AccentBlueBrush}" 
+                            HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding IsRegistering, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="Регистрация" FontSize="20" FontWeight="SemiBold" 
+                               Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,15"/>
+
+                    <TextBlock Text="Имя *" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <TextBox x:Name="RegFirstNameBox" Text="{Binding RegFirstName, UpdateSourceTrigger=PropertyChanged}" 
+                             Padding="10" Margin="0,0,0,10" KeyDown="InputBox_KeyDown"/>
+
+                    <TextBlock Text="Фамилия" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <Grid Margin="0,0,0,10">
+                        <TextBox x:Name="RegLastNameBox" Text="{Binding RegLastName, UpdateSourceTrigger=PropertyChanged}" 
+                                 Padding="10" Foreground="{StaticResource TextLightBrush}" KeyDown="InputBox_KeyDown"/>
+                        <TextBlock Text="Не обязательно" Foreground="{StaticResource TextMutedBrush}" 
+                                   IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Visibility="{Binding Text, ElementName=RegLastNameBox, Converter={StaticResource InverseStringToVisibilityConverter}}"/>
+                    </Grid>
+
+                    <TextBlock Text="Отчество" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <Grid Margin="0,0,0,10">
+                        <TextBox x:Name="RegMiddleNameBox" Text="{Binding RegMiddleName, UpdateSourceTrigger=PropertyChanged}" 
+                                 Padding="10" Foreground="{StaticResource TextLightBrush}" KeyDown="InputBox_KeyDown"/>
+                        <TextBlock Text="Не обязательно" Foreground="{StaticResource TextMutedBrush}" 
+                                   IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Visibility="{Binding Text, ElementName=RegMiddleNameBox, Converter={StaticResource InverseStringToVisibilityConverter}}"/>
+                    </Grid>
+
+                    <TextBlock Text="Имя пользователя *" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <TextBox x:Name="RegUsernameBox" Text="{Binding RegUsername, UpdateSourceTrigger=PropertyChanged}" 
+                             Padding="10" Margin="0,0,0,10" KeyDown="InputBox_KeyDown"/>
+
+                    <TextBlock Text="Пароль *" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <PasswordBox x:Name="RegPasswordBox" Padding="10" Margin="0,0,0,10" KeyDown="InputBox_KeyDown"/>
+
+                    <TextBlock Text="Регистрационный ключ *" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,5"/>
+                    <TextBox x:Name="RegKeyBox" Text="{Binding RegKey, UpdateSourceTrigger=PropertyChanged}" 
+                             Padding="10" Margin="0,0,0,15" KeyDown="InputBox_KeyDown"/>
+
+                    <Button Content="Зарегистрироваться" Command="{Binding RegisterCommand}" 
+                            Background="{StaticResource AccentGreenBrush}" Foreground="White" 
+                            Padding="12" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="Уже есть аккаунт?" Foreground="{StaticResource TextMutedBrush}" 
+                               HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                    <Button Content="Войти" Command="{Binding ToggleModeCommand}" 
+                            Background="Transparent" Foreground="{StaticResource AccentBlueBrush}" 
+                            HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource AccentRedBrush}" 
+                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,15,0,0"
+                           Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibilityConverter}}"/>
+
+                <ProgressBar IsIndeterminate="True" Margin="0,15,0,0" 
+                           Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,23 @@
+# .NET
+bin/
+obj/
+out/
+publish/
+Exe/
+*.exe
+*.dll
+*.pdb
+*.r2r.dll
+.nuget/
+packages/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Large files
+*.zip
+*.7z
+*.tar
