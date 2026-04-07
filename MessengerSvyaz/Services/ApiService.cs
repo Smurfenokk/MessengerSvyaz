@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -23,6 +23,8 @@ public class ApiService
     public void SetBaseUrl(string url) => _baseUrl = url.TrimEnd('/');
     
     public void SetSessionCookie(string cookie) => _sessionCookie = cookie;
+
+    public string? GetSessionCookie() => _sessionCookie;
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string endpoint, object? content = null)
     {

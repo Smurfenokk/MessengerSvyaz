@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
@@ -28,8 +28,9 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
 
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="SocketIOClient" Version="4.0.3" />
+        <PackageReference Include="SocketIOClient.Serializer.NewtonsoftJson" Version="4.0.0.1" />
     </ItemGroup>
 
 </Project>

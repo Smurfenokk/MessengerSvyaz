@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using MessengerSvyaz.Models;
 using MessengerSvyaz.Services;
@@ -38,7 +39,11 @@ public class GroupChatViewModel : BaseViewModel
         _groupName = groupName;
         
         SendCommand = new RelayCommand(async _ => await SendMessageAsync(), _ => !string.IsNullOrWhiteSpace(NewMessage));
-        GoBackCommand = new RelayCommand(_ => _mainViewModel.NavigateToGroups());
+        GoBackCommand = new RelayCommand(_ =>
+        {
+            _socketService.OnNewGroupMessage -= OnSocketGroupMessage;
+            _mainViewModel.NavigateToGroups();
+        });
         LoadMoreMessagesCommand = new RelayCommand(async _ => await LoadMessagesAsync(true), _ => !_isLoading && !_allMessagesLoaded);
         AddReactionCommand = new RelayCommand(async param => await AddReactionAsync(param));
         OpenInfoCommand = new RelayCommand(_ => OpenGroupInfo());
@@ -69,6 +74,7 @@ public class GroupChatViewModel : BaseViewModel
         try
         {
             await _socketService.JoinGroupAsync(_groupId);
+            _socketService.OnNewGroupMessage += OnSocketGroupMessage;
             await LoadMessagesAsync(false);
             await LoadGroupInfoAsync();
         }
@@ -200,6 +206,37 @@ public class GroupChatViewModel : BaseViewModel
     private void OpenGroupInfo()
     {
         _mainViewModel.NavigateToGroupInfo(_groupId, _groupName, CreatorName, Members.ToList());
+    }
+
+    private void OnSocketGroupMessage(object? sender, GroupMessage msg)
+    {
+        if (Application.Current?.Dispatcher.CheckAccess() != true)
+        {
+            Application.Current?.Dispatcher.Invoke(() => OnSocketGroupMessage(sender, msg));
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(msg.GroupId) && msg.GroupId != _groupId)
+            return;
+
+        var existing = Messages.FirstOrDefault(m => m.Id == msg.Id);
+        if (msg.Deleted)
+        {
+            if (existing != null)
+                Messages.Remove(existing);
+            return;
+        }
+
+        if (existing != null)
+        {
+            var idx = Messages.IndexOf(existing);
+            Messages.RemoveAt(idx);
+            Messages.Insert(idx, msg);
+        }
+        else
+        {
+            Messages.Add(msg);
+        }
     }
 
     private class GroupMessagesResponse

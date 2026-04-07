@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -97,7 +97,14 @@ public class ChatViewModel : BaseViewModel
     {
         await LoadMessagesAsync(false);
 
-        if (_isSavedMessages || _p2pService == null || _encryptionService == null) return;
+        if (_isSavedMessages)
+            return;
+
+        _socketService.OnNewMessage += OnSocketNewMessage;
+        await _socketService.JoinChatAsync(_otherUser);
+
+        if (_p2pService == null || _encryptionService == null)
+            return;
 
         _socketService.OnP2PRequest += HandleP2PRequest;
         _socketService.OnP2PResponse += HandleP2PResponse;
@@ -115,6 +122,44 @@ public class ChatViewModel : BaseViewModel
             var localIp = host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
             
             await _socketService.SendP2PRequestAsync(_otherUser, localIp, port, _encryptionService.PublicKey);
+        }
+    }
+
+    private void OnSocketNewMessage(object? sender, Message msg)
+    {
+        if (Application.Current?.Dispatcher.CheckAccess() != true)
+        {
+            Application.Current?.Dispatcher.Invoke(() => OnSocketNewMessage(sender, msg));
+            return;
+        }
+
+        if (_isSavedMessages) return;
+
+        var involvesUs = (msg.Sender == CurrentUser && msg.Receiver == _otherUser)
+                         || (msg.Sender == _otherUser && msg.Receiver == CurrentUser);
+        if (!involvesUs) return;
+
+        if (msg.Deleted)
+        {
+            var toRemove = Messages.FirstOrDefault(m => m.Id == msg.Id);
+            if (toRemove != null)
+                Messages.Remove(toRemove);
+            return;
+        }
+
+        msg.IsSentByCurrentUser = msg.Sender == CurrentUser;
+        msg.Status = msg.Read ? MessageStatus.Read : MessageStatus.Delivered;
+
+        var existing = Messages.FirstOrDefault(m => m.Id == msg.Id);
+        if (existing != null)
+        {
+            var idx = Messages.IndexOf(existing);
+            Messages.RemoveAt(idx);
+            Messages.Insert(idx, msg);
+        }
+        else
+        {
+            Messages.Add(msg);
         }
     }
 
@@ -221,6 +266,7 @@ public class ChatViewModel : BaseViewModel
         _p2pService?.Disconnect();
         if (_socketService != null)
         {
+            _socketService.OnNewMessage -= OnSocketNewMessage;
             _socketService.OnP2PRequest -= HandleP2PRequest;
             _socketService.OnP2PResponse -= HandleP2PResponse;
             _socketService.OnUserTyping -= OnUserTyping;

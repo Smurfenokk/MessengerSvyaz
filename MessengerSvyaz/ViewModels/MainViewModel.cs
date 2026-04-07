@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -53,7 +53,9 @@ public class MainViewModel : BaseViewModel
         {
             if (_authService.CurrentUsername != null)
             {
-                await _socketService.ConnectAsync(_authService.CurrentUsername);
+                await _socketService.ConnectAsync(
+                    _authService.CurrentUsername,
+                    _apiService.GetSessionCookie());
             }
         }
         catch (Exception ex)
