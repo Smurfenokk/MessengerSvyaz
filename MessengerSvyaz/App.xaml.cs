@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Threading;
 using System;
 
@@ -8,7 +8,6 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
-        // Ловим все необработанные исключения
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             MessageBox.Show($"Критическая ошибка: {args.ExceptionObject}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);

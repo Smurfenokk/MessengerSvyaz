@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -69,7 +69,6 @@ namespace MessengerSvyaz.Services
                     {
                         var bytesRead = await _stream.ReadAsync(buffer, 0, buffer.Length);
                         if (bytesRead == 0) break;
-
                         var encryptedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                         var decryptedMessage = _encryptionService.Decrypt(encryptedMessage);
                         MessageReceived?.Invoke(this, decryptedMessage);
@@ -105,8 +104,8 @@ namespace MessengerSvyaz.Services
 
         public void Disconnect()
         {
-            _stream?.Close();
-            _client?.Close();
+            _stream?.Dispose();
+            _client?.Dispose();
             _listener?.Stop();
             Console.WriteLine("P2P: Disconnected.");
         }

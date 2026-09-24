@@ -1,3 +1,0 @@
-﻿svyaz.darkforce-sl.ru {
-    reverse_proxy svyaz:5000
-}

@@ -1,10 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -21,15 +19,12 @@ public class ChatViewModel : BaseViewModel
     private readonly ApiService _apiService;
     private readonly SocketService _socketService;
     private readonly MainViewModel _mainViewModel;
-    private readonly P2PService? _p2pService;
-    private readonly EncryptionService? _encryptionService;
     private readonly string _otherUser;
     private readonly bool _isSavedMessages;
 
     private ObservableCollection<Message> _messages = new();
     private string _newMessage = string.Empty;
     private bool _isLoading;
-    private bool _isP2PReady = false;
     private int _currentPage = 0;
     private bool _allMessagesLoaded = false;
     private bool _isOtherUserTyping;
@@ -47,20 +42,14 @@ public class ChatViewModel : BaseViewModel
         _otherUser = otherUser;
         _isSavedMessages = otherUser == _authService.CurrentUsername;
 
-        if (!_isSavedMessages)
-        {
-            _encryptionService = new EncryptionService();
-            _p2pService = new P2PService(_encryptionService);
-        }
-
-        SendCommand = new RelayCommand(async _ => await SendMessageAsync(), _ => !string.IsNullOrWhiteSpace(NewMessage) && (_isSavedMessages || _isP2PReady));
+        SendCommand = new RelayCommand(async _ => await SendMessageAsync(), _ => !string.IsNullOrWhiteSpace(NewMessage));
         GoBackCommand = new RelayCommand(async _ => await GoBackAndCleanupAsync());
         LoadMoreMessagesCommand = new RelayCommand(async _ => await LoadMessagesAsync(true), _ => !_isLoading && !_allMessagesLoaded);
         EditMessageCommand = new RelayCommand(message => StartEdit(message as Message), message => message is Message);
         DeleteMessageCommand = new RelayCommand(async message => await DeleteMessageAsync(message as Message), message => message is Message);
         CancelEditCommand = new RelayCommand(_ => CancelEdit());
         SendFileCommand = new RelayCommand(async _ => await SendFileAsync());
-        
+
         _ = InitializeAsync();
     }
 
@@ -97,25 +86,17 @@ public class ChatViewModel : BaseViewModel
     {
         await LoadMessagesAsync(false);
 
-        if (_isSavedMessages || _p2pService == null || _encryptionService == null) return;
+        if (_isSavedMessages) return;
 
-        _socketService.OnP2PRequest += HandleP2PRequest;
-        _socketService.OnP2PResponse += HandleP2PResponse;
+        _socketService.OnNewMessage += OnNewMessageReceived;
+        _socketService.OnMessageEdited += OnMessageEditedReceived;
+        _socketService.OnMessageDeleted += OnMessageDeletedReceived;
+        _socketService.OnMessageRead += OnMessageReadReceived;
         _socketService.OnUserTyping += OnUserTyping;
-        _p2pService.MessageReceived += OnP2PMessageReceived;
 
-        _typingTimer = new Timer(_ => IsOtherUserTyping = false, null, -1, -1);
+        _typingTimer = new Timer(state => IsOtherUserTyping = false, null, -1, -1);
 
-        if (string.Compare(CurrentUser, _otherUser, StringComparison.Ordinal) > 0)
-        {
-            var port = new Random().Next(10000, 20000);
-            _p2pService.StartListening(port);
-            
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            var localIp = host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
-            
-            await _socketService.SendP2PRequestAsync(_otherUser, localIp, port, _encryptionService.PublicKey);
-        }
+        await _socketService.JoinChatAsync(_otherUser);
     }
 
     private void OnUserTyping(object? sender, string username)
@@ -127,44 +108,48 @@ public class ChatViewModel : BaseViewModel
         }
     }
 
-    private async void HandleP2PRequest(object? sender, P2PConnectionInfo info)
+    private void OnNewMessageReceived(object? sender, Message msg)
     {
-        if (info.User == CurrentUser && _p2pService != null && _encryptionService != null)
+        if (msg.Sender != _otherUser && msg.Receiver != _otherUser) return;
+        if (msg.Sender == CurrentUser) return;
+
+        Application.Current.Dispatcher.Invoke(() =>
         {
-            _encryptionService.DeriveSharedKey(info.PublicKey);
-            await _p2pService.ConnectAsync(info.IpAddress, info.Port);
-            
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            var localIp = host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
-            
-            await _socketService.SendP2PResponseAsync(_otherUser, localIp, 0, _encryptionService.PublicKey);
-            _isP2PReady = true;
-            ((RelayCommand)SendCommand).RaiseCanExecuteChanged();
-        }
+            msg.IsSentByCurrentUser = false;
+            msg.Status = MessageStatus.Delivered;
+            Messages.Add(msg);
+        });
     }
 
-    private void HandleP2PResponse(object? sender, P2PConnectionInfo info)
-    {
-        if (info.User == CurrentUser && _encryptionService != null)
-        {
-            _encryptionService.DeriveSharedKey(info.PublicKey);
-            _isP2PReady = true;
-            ((RelayCommand)SendCommand).RaiseCanExecuteChanged();
-            System.Diagnostics.Debug.WriteLine("P2P Handshake complete.");
-        }
-    }
-
-    private void OnP2PMessageReceived(object? sender, string message)
+    private void OnMessageEditedReceived(object? sender, (string messageId, string newContent) data)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            Messages.Add(new Message
+            var msg = Messages.FirstOrDefault(m => m.Id == data.messageId);
+            if (msg != null)
             {
-                Sender = _otherUser,
-                Content = message,
-                Timestamp = DateTime.UtcNow.ToString("o"),
-                IsSentByCurrentUser = false
-            });
+                msg.Content = data.newContent;
+                msg.Edited = true;
+            }
+        });
+    }
+
+    private void OnMessageDeletedReceived(object? sender, string messageId)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var msg = Messages.FirstOrDefault(m => m.Id == messageId);
+            if (msg != null) Messages.Remove(msg);
+        });
+    }
+
+    private void OnMessageReadReceived(object? sender, (string otherUser, string messageId) data)
+    {
+        if (data.otherUser != _otherUser) return;
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var msg = Messages.FirstOrDefault(m => m.Id == data.messageId);
+            if (msg != null) msg.Status = MessageStatus.Read;
         });
     }
 
@@ -190,7 +175,7 @@ public class ChatViewModel : BaseViewModel
             IsSentByCurrentUser = true,
             Status = MessageStatus.Sending
         };
-        
+
         Messages.Add(message);
 
         if (_isSavedMessages)
@@ -206,26 +191,40 @@ public class ChatViewModel : BaseViewModel
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Save message error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("Save message error: " + ex.Message);
             }
         }
-        else if (_isP2PReady && _p2pService != null)
+        else
         {
-            await _p2pService.SendMessageAsync(messageContent);
-            message.Status = MessageStatus.Sent;
+            try
+            {
+                var payload = new { receiver = _otherUser, message = messageContent, type = "text" };
+                var response = await _apiService.PostAsync<object>("/api/chat/send", payload);
+                if (response.Success)
+                {
+                    message.Status = MessageStatus.Sent;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Send message error: " + ex.Message);
+                message.Status = MessageStatus.Sending;
+            }
         }
     }
-    
+
     private async Task GoBackAndCleanupAsync()
     {
-        _p2pService?.Disconnect();
         if (_socketService != null)
         {
-            _socketService.OnP2PRequest -= HandleP2PRequest;
-            _socketService.OnP2PResponse -= HandleP2PResponse;
+            _socketService.OnNewMessage -= OnNewMessageReceived;
+            _socketService.OnMessageEdited -= OnMessageEditedReceived;
+            _socketService.OnMessageDeleted -= OnMessageDeletedReceived;
+            _socketService.OnMessageRead -= OnMessageReadReceived;
             _socketService.OnUserTyping -= OnUserTyping;
         }
         _typingTimer?.Dispose();
+        _typingTimer = null;
         await _mainViewModel.NavigateToDashboardAsync();
     }
 
@@ -240,11 +239,11 @@ public class ChatViewModel : BaseViewModel
         try
         {
             var endpoint = _isSavedMessages 
-                ? $"/api/chat/messages/saved?page={_currentPage}" 
-                : $"/api/chat/messages/{_otherUser}?page={_currentPage}";
-            
+                ? "/api/chat/messages/saved?page=" + _currentPage
+                : "/api/chat/messages/" + _otherUser + "?page=" + _currentPage;
+
             var response = await _apiService.GetAsync<MessagesResponse>(endpoint);
-            
+
             if (response.Success && response.Data?.Messages != null)
             {
                 var newMessages = response.Data.Messages.Select(m => {
@@ -273,7 +272,7 @@ public class ChatViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Load messages error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Load messages error: " + ex.Message);
         }
         finally
         {
@@ -304,14 +303,11 @@ public class ChatViewModel : BaseViewModel
 
         message.Content = newContent;
         message.Edited = true;
-        
+
         CancelEdit();
 
-        if (!_isP2PReady)
-        {
-            var payload = new { message_id = message.Id, new_content = newContent };
-            await _apiService.PostAsync<object>("/api/chat/edit", payload);
-        }
+        var payload = new { message_id = message.Id, new_content = newContent };
+        await _apiService.PostAsync<object>("/api/chat/edit", payload);
     }
 
     private async Task DeleteMessageAsync(Message? message)
@@ -320,11 +316,8 @@ public class ChatViewModel : BaseViewModel
 
         Messages.Remove(message);
 
-        if (!_isP2PReady)
-        {
-            var payload = new { message_id = message.Id };
-            await _apiService.PostAsync<object>("/api/chat/delete", payload);
-        }
+        var payload = new { message_id = message.Id };
+        await _apiService.PostAsync<object>("/api/chat/delete", payload);
     }
 
     private async Task SendFileAsync()
@@ -339,12 +332,12 @@ public class ChatViewModel : BaseViewModel
         {
             Id = Guid.NewGuid().ToString(),
             Sender = CurrentUser,
-            Content = $"Uploading {fileName}...",
+            Content = "Uploading " + fileName + "...",
             Timestamp = DateTime.UtcNow.ToString("o"),
             IsSentByCurrentUser = true,
             Status = MessageStatus.Sending
         };
-        
+
         Messages.Add(message);
 
         var response = await _apiService.UploadFileAsync("/api/upload/file", filePath, fileName);
@@ -359,15 +352,12 @@ public class ChatViewModel : BaseViewModel
             message.FileUrl = response.Data.Url;
             message.Status = MessageStatus.Sent;
 
-            if (!_isP2PReady)
-            {
-                var payload = new { receiver = _otherUser, type = "file", file_id = response.Data.FileId };
-                await _apiService.PostAsync<object>("/api/chat/send", payload);
-            }
+            var payload = new { receiver = _otherUser, type = "file", file_id = response.Data.FileId, message = "" };
+            await _apiService.PostAsync<object>("/api/chat/send", payload);
         }
         else
         {
-            message.Content = $"Failed to upload {fileName}";
+            message.Content = "Failed to upload " + fileName;
         }
     }
 

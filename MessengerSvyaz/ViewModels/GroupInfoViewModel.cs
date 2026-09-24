@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -79,8 +79,6 @@ public class GroupInfoViewModel : BaseViewModel
         {
             Members.Remove(username);
             MembersCount = Members.Count;
-            OnPropertyChanged(nameof(Members));
-            OnPropertyChanged(nameof(MembersCount));
         }
     }
 }

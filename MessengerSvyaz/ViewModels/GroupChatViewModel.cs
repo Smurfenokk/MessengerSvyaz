@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using MessengerSvyaz.Models;
 using MessengerSvyaz.Services;
@@ -17,7 +18,7 @@ public class GroupChatViewModel : BaseViewModel
     private readonly MainViewModel _mainViewModel;
     private readonly string _groupId;
     private readonly string _groupName;
-    
+
     private ObservableCollection<GroupMessage> _messages = new();
     private ObservableCollection<string> _members = new();
     private string _newMessage = string.Empty;
@@ -36,13 +37,13 @@ public class GroupChatViewModel : BaseViewModel
         _mainViewModel = mainViewModel;
         _groupId = groupId;
         _groupName = groupName;
-        
+
         SendCommand = new RelayCommand(async _ => await SendMessageAsync(), _ => !string.IsNullOrWhiteSpace(NewMessage));
         GoBackCommand = new RelayCommand(_ => _mainViewModel.NavigateToGroups());
         LoadMoreMessagesCommand = new RelayCommand(async _ => await LoadMessagesAsync(true), _ => !_isLoading && !_allMessagesLoaded);
         AddReactionCommand = new RelayCommand(async param => await AddReactionAsync(param));
         OpenInfoCommand = new RelayCommand(_ => OpenGroupInfo());
-        
+
         _ = InitializeAsync();
     }
 
@@ -71,11 +72,29 @@ public class GroupChatViewModel : BaseViewModel
             await _socketService.JoinGroupAsync(_groupId);
             await LoadMessagesAsync(false);
             await LoadGroupInfoAsync();
+
+            _socketService.OnNewGroupMessage += OnNewGroupMessageReceived;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Group chat init error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Group chat init error: " + ex.Message);
         }
+    }
+
+    private void Cleanup()
+    {
+        _socketService.OnNewGroupMessage -= OnNewGroupMessageReceived;
+    }
+
+    private void OnNewGroupMessageReceived(object? sender, GroupMessage msg)
+    {
+        if (msg.Sender == CurrentUser) return;
+        if (msg.GroupId != _groupId) return;
+
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            Messages.Add(msg);
+        });
     }
 
     private async Task LoadMessagesAsync(bool loadMore)
@@ -85,11 +104,11 @@ public class GroupChatViewModel : BaseViewModel
         IsLoading = true;
         if (loadMore) _currentPage++;
         else _currentPage = 0;
-        
+
         try
         {
-            var response = await _apiService.GetAsync<GroupMessagesResponse>($"/api/group/messages/{_groupId}?page={_currentPage}");
-            
+            var response = await _apiService.GetAsync<GroupMessagesResponse>("/api/group/messages/" + _groupId + "?page=" + _currentPage);
+
             if (response.Success && response.Data != null)
             {
                 var newMessages = response.Data.Messages;
@@ -119,7 +138,7 @@ public class GroupChatViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Load group messages error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Load group messages error: " + ex.Message);
         }
         finally
         {
@@ -132,7 +151,7 @@ public class GroupChatViewModel : BaseViewModel
     {
         try
         {
-            var response = await _apiService.GetAsync<GroupInfoResponse>($"/api/group/info/{_groupId}");
+            var response = await _apiService.GetAsync<GroupInfoResponse>("/api/group/info/" + _groupId);
             if (response.Success && response.Data != null)
             {
                 CreatorName = response.Data.Creator;
@@ -141,7 +160,7 @@ public class GroupChatViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Load group info error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Load group info error: " + ex.Message);
         }
     }
 
@@ -158,16 +177,15 @@ public class GroupChatViewModel : BaseViewModel
             };
 
             var response = await _apiService.PostAsync<object>("/api/group/send", payload);
-            
+
             if (response.Success)
             {
                 NewMessage = string.Empty;
-                await LoadMessagesAsync(false);
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Send group message error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Send group message error: " + ex.Message);
         }
     }
 
@@ -176,7 +194,7 @@ public class GroupChatViewModel : BaseViewModel
         if (!AllowReactions || param is not object[] arr || arr.Length != 2) return;
         var messageId = arr[0] as string;
         var emoji = arr[1] as string;
-        
+
         if (string.IsNullOrEmpty(messageId) || string.IsNullOrEmpty(emoji)) return;
 
         try
@@ -193,12 +211,13 @@ public class GroupChatViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Add reaction error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Add reaction error: " + ex.Message);
         }
     }
 
     private void OpenGroupInfo()
     {
+        Cleanup();
         _mainViewModel.NavigateToGroupInfo(_groupId, _groupName, CreatorName, Members.ToList());
     }
 

@@ -1,31 +1,27 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-using MessengerSvyaz.Models;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using MessengerSvyaz.Models;
+using SocketIOClient;
 
 namespace MessengerSvyaz.Services;
 
-public class P2PConnectionInfo
+public class SocketService : IDisposable
 {
-    public required string User { get; init; }
-    public required string IpAddress { get; init; }
-    public int Port { get; init; }
-    public required byte[] PublicKey { get; init; }
-}
+    private SocketIOClient.SocketIO? _client;
+    private string _baseUrl = "http://svyaz.darkforce-sl.ru";
+    private bool _disposed;
 
-public class SocketService
-{
-    private HubConnection? _connection;
-    private string _baseUrl = "https://svyaz.darkforce-sl.ru";
-    
     public event EventHandler<Message>? OnNewMessage;
     public event EventHandler<GroupMessage>? OnNewGroupMessage;
     public event EventHandler<string>? OnUserTyping;
+    public event EventHandler<string>? OnUserOnline;
+    public event EventHandler<string>? OnUserOffline;
+    public event EventHandler<(string messageId, string newContent)>? OnMessageEdited;
+    public event EventHandler<string>? OnMessageDeleted;
+    public event EventHandler<(string otherUser, string messageId)>? OnMessageRead;
     public event EventHandler? OnConnected;
     public event EventHandler? OnDisconnected;
-    
-    public event EventHandler<P2PConnectionInfo>? OnP2PRequest;
-    public event EventHandler<P2PConnectionInfo>? OnP2PResponse;
 
     public void SetBaseUrl(string url) => _baseUrl = url.TrimEnd('/');
 
@@ -33,116 +29,212 @@ public class SocketService
     {
         try
         {
-            _connection = new HubConnectionBuilder()
-                .WithUrl($"{_baseUrl}/socket.io/?EIO=4&transport=websocket")
-                .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30) })
-                .Build();
-
-            _connection.On<Message>("new_message", msg => OnNewMessage?.Invoke(this, msg));
-            _connection.On<GroupMessage>("new_group_message", msg => OnNewGroupMessage?.Invoke(this, msg));
-            _connection.On<string>("user_typing", user => OnUserTyping?.Invoke(this, user));
-
-            _connection.On<P2PConnectionInfo>("p2p_request", info => OnP2PRequest?.Invoke(this, info));
-            _connection.On<P2PConnectionInfo>("p2p_response", info => OnP2PResponse?.Invoke(this, info));
-
-            _connection.Reconnecting += error => 
+            _client = new SocketIOClient.SocketIO(_baseUrl, new SocketIOClient.SocketIOOptions
             {
-                OnDisconnected?.Invoke(this, EventArgs.Empty);
-                return Task.CompletedTask;
-            };
+                Query = new Dictionary<string, string>
+                {
+                    { "EIO", "4" },
+                    { "transport", "websocket" }
+                },
+                Reconnection = true,
+                ReconnectionAttempts = 5,
+                ReconnectionDelay = 2000
+            });
 
-            _connection.Reconnected += connectionId =>
+            _client.OnConnected += (sender, e) => 
             {
                 OnConnected?.Invoke(this, EventArgs.Empty);
-                return Task.CompletedTask;
             };
 
-            await _connection.StartAsync();
-            OnConnected?.Invoke(this, EventArgs.Empty);
+            _client.OnDisconnected += (sender, e) => 
+            {
+                OnDisconnected?.Invoke(this, EventArgs.Empty);
+            };
+
+            _client.OnError += (sender, e) => 
+            {
+                System.Diagnostics.Debug.WriteLine("Socket error: " + e);
+            };
+
+            _client.On("new_message", response => 
+            {
+                try
+                {
+                    var msg = response.GetValue<Message>();
+                    OnNewMessage?.Invoke(this, msg);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing new_message: " + ex.Message);
+                }
+            });
+
+            _client.On("new_group_message", response => 
+            {
+                try
+                {
+                    var msg = response.GetValue<GroupMessage>();
+                    OnNewGroupMessage?.Invoke(this, msg);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing new_group_message: " + ex.Message);
+                }
+            });
+
+            _client.On("user_typing", response => 
+            {
+                try
+                {
+                    var user = response.GetValue<string>();
+                    OnUserTyping?.Invoke(this, user);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing user_typing: " + ex.Message);
+                }
+            });
+
+            _client.On("user_online", response => 
+            {
+                try
+                {
+                    var user = response.GetValue<string>();
+                    OnUserOnline?.Invoke(this, user);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing user_online: " + ex.Message);
+                }
+            });
+
+            _client.On("user_offline", response => 
+            {
+                try
+                {
+                    var user = response.GetValue<string>();
+                    OnUserOffline?.Invoke(this, user);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing user_offline: " + ex.Message);
+                }
+            });
+
+            _client.On("message_edited", response => 
+            {
+                try
+                {
+                    var json = response.GetValue<System.Text.Json.JsonElement>();
+                    var msgId = json.GetProperty("message_id").GetString() ?? "";
+                    var content = json.GetProperty("new_content").GetString() ?? "";
+                    OnMessageEdited?.Invoke(this, (msgId, content));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing message_edited: " + ex.Message);
+                }
+            });
+
+            _client.On("message_deleted", response => 
+            {
+                try
+                {
+                    var msgId = response.GetValue<string>();
+                    OnMessageDeleted?.Invoke(this, msgId);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing message_deleted: " + ex.Message);
+                }
+            });
+
+            _client.On("message_read", response => 
+            {
+                try
+                {
+                    var json = response.GetValue<System.Text.Json.JsonElement>();
+                    var otherUser = json.GetProperty("other_user").GetString() ?? "";
+                    var msgId = json.GetProperty("message_id").GetString() ?? "";
+                    OnMessageRead?.Invoke(this, (otherUser, msgId));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Error parsing message_read: " + ex.Message);
+                }
+            });
+
+            await _client.ConnectAsync();
+
+            await _client.EmitAsync("join_chat", new { other_user = username });
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Socket connection error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Socket connection error: " + ex.Message);
             throw;
-        }
-    }
-
-    public async Task SendP2PRequestAsync(string targetUser, string ipAddress, int port, byte[] publicKey)
-    {
-        if (_connection?.State == HubConnectionState.Connected)
-        {
-            var info = new P2PConnectionInfo { User = targetUser, IpAddress = ipAddress, Port = port, PublicKey = publicKey };
-            await _connection.InvokeAsync("p2p_request", info);
-        }
-    }
-
-    public async Task SendP2PResponseAsync(string targetUser, string ipAddress, int port, byte[] publicKey)
-    {
-        if (_connection?.State == HubConnectionState.Connected)
-        {
-            var info = new P2PConnectionInfo { User = targetUser, IpAddress = ipAddress, Port = port, PublicKey = publicKey };
-            await _connection.InvokeAsync("p2p_response", info);
         }
     }
 
     public async Task JoinChatAsync(string otherUser)
     {
-        if (_connection?.State == HubConnectionState.Connected)
+        if (_client?.Connected == true)
         {
-            try
-            {
-                await _connection.InvokeAsync("join_chat", new { other_user = otherUser });
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Join chat error: {ex.Message}");
-            }
+            await _client.EmitAsync("join_chat", new { other_user = otherUser });
         }
     }
 
     public async Task JoinGroupAsync(string groupId)
     {
-        if (_connection?.State == HubConnectionState.Connected)
+        if (_client?.Connected == true)
         {
-            try
-            {
-                await _connection.InvokeAsync("join_group", new { group_id = groupId });
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Join group error: {ex.Message}");
-            }
+            await _client.EmitAsync("join_group", new { group_id = groupId });
         }
     }
 
     public async Task SendTypingAsync(string otherUser)
     {
-        if (_connection?.State == HubConnectionState.Connected)
+        if (_client?.Connected == true)
         {
-            try
-            {
-                await _connection.InvokeAsync("typing", new { other_user = otherUser });
-            }
-            catch { }
+            await _client.EmitAsync("typing", new { other_user = otherUser });
+        }
+    }
+
+    public async Task SendReadReceiptAsync(string otherUser, string messageId)
+    {
+        if (_client?.Connected == true)
+        {
+            await _client.EmitAsync("read_receipt", new { other_user = otherUser, message_id = messageId });
         }
     }
 
     public async Task DisconnectAsync()
     {
-        if (_connection != null)
+        if (_client != null)
         {
             try
             {
-                await _connection.StopAsync();
-                await _connection.DisposeAsync();
+                await _client.DisconnectAsync();
+                _client.Dispose();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Socket disconnect error: " + ex.Message);
+            }
             finally
             {
-                _connection = null;
+                _client = null;
             }
         }
     }
 
-    public bool IsConnected => _connection?.State == HubConnectionState.Connected;
+    public bool IsConnected => _client?.Connected == true;
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _ = DisconnectAsync();
+            _disposed = true;
+        }
+    }
 }

@@ -1,9 +1,10 @@
-﻿namespace MessengerSvyaz.Models;
+namespace MessengerSvyaz.Models;
 
 public class GroupMessage
 {
     public string Id { get; set; } = string.Empty;
     public string Sender { get; set; } = string.Empty;
+    public string? GroupId { get; set; }
     public string Content { get; set; } = string.Empty;
     public string Timestamp { get; set; } = string.Empty;
     public string Type { get; set; } = "user";

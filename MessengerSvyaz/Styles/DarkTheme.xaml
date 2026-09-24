@@ -31,7 +31,6 @@
     <converters:OnlineStatusConverter x:Key="OnlineStatusConverter"/>
     <converters:BoolToStringConverter x:Key="BoolToStringConverter"/>
     <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
-    <!-- УДАЛЕНА ДУБЛИРУЮЩАЯ СТРОКА StringToVisibilityConverter -->
     <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
     <converters:TimestampToTimeConverter x:Key="TimestampToTimeConverter"/>
     <converters:MessageAlignmentConverter x:Key="MessageAlignmentConverter"/>
@@ -52,7 +51,6 @@
     <converters:FileTypeToFileVisibilityConverter x:Key="FileTypeToFileVisibilityConverter"/>
     <converters:FirstCharConverter x:Key="FirstCharConverter"/>
     <converters:FileSizeConverter x:Key="FileSizeConverter"/>
-    <!-- УДАЛЕНА ДУБЛИРУЮЩАЯ СТРОКА - была здесь повторно -->
 
     <Style TargetType="Window">
         <Setter Property="Background" Value="{StaticResource BgDarkBrush}"/>

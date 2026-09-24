@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -6,7 +6,7 @@ using MessengerSvyaz.Services;
 
 namespace MessengerSvyaz.ViewModels;
 
-public class MainViewModel : BaseViewModel
+public class MainViewModel : BaseViewModel, IDisposable
 {
     private readonly AuthService _authService;
     private readonly ApiService _apiService;
@@ -14,6 +14,7 @@ public class MainViewModel : BaseViewModel
     
     private BaseViewModel? _currentViewModel;
     private bool _isAuthenticated;
+    private bool _disposed;
 
     public MainViewModel()
     {
@@ -22,6 +23,16 @@ public class MainViewModel : BaseViewModel
         _socketService = new SocketService();
         
         NavigateToLogin();
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _socketService?.Dispose();
+            (_apiService as IDisposable)?.Dispose();
+            _disposed = true;
+        }
     }
 
     public BaseViewModel? CurrentViewModel
@@ -93,6 +104,12 @@ public class MainViewModel : BaseViewModel
         CurrentViewModel = new GroupInfoViewModel(this, _apiService, groupId, groupName, creatorName, members, isCreator);
     }
 
+    public void SetServerUrl(string url)
+    {
+        _apiService.SetBaseUrl(url);
+        _socketService.SetBaseUrl(url);
+    }
+    
     public void NavigateToSupport()
     {
         if (!_authService.IsAuthenticated) return;
@@ -105,7 +122,10 @@ public class MainViewModel : BaseViewModel
         {
             await _socketService.DisconnectAsync();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Logout error: " + ex.Message);
+        }
         _authService.Logout();
         NavigateToLogin();
     }

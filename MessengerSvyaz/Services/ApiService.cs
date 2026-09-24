@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using MessengerSvyaz.Models;
@@ -8,16 +10,28 @@ using Newtonsoft.Json;
 
 namespace MessengerSvyaz.Services;
 
-public class ApiService
+public class ApiService : IDisposable
 {
     private readonly HttpClient _httpClient;
-    private string _baseUrl = "https://svyaz.darkforce-sl.ru";
+    private string _baseUrl = "http://svyaz.darkforce-sl.ru";
     private string? _sessionCookie;
+    private bool _disposed;
 
     public ApiService()
     {
-        _httpClient = new HttpClient();
+        var handler = new HttpClientHandler();
+        handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+        _httpClient = new HttpClient(handler);
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _httpClient?.Dispose();
+            _disposed = true;
+        }
     }
 
     public void SetBaseUrl(string url) => _baseUrl = url.TrimEnd('/');
@@ -50,9 +64,17 @@ public class ApiService
             var response = await _httpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
             
+            System.Diagnostics.Debug.WriteLine($"Response status: {response.StatusCode}");
+            System.Diagnostics.Debug.WriteLine($"Response content: {responseContent}");
+            
             if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
             {
                 _sessionCookie = string.Join("; ", cookies);
+            }
+            
+            if (responseContent.TrimStart().StartsWith("<"))
+            {
+                return (false, $"Server returned HTML instead of JSON. Status: {response.StatusCode}. Content: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}", null);
             }
             
             var result = JsonConvert.DeserializeObject<ApiResponse<T>>(responseContent);
@@ -66,6 +88,7 @@ public class ApiService
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"PostAsync error: {ex.Message}");
             return (false, ex.Message, null);
         }
     }
@@ -84,7 +107,7 @@ public class ApiService
             {
                 return (true, result.Message ?? "Success", result.Data);
             }
-            
+
             return (false, result?.Message ?? "Unknown error", null);
         }
         catch (Exception ex)
@@ -110,8 +133,9 @@ public class ApiService
             
             return (true, data, fileName);
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine("Download file error: " + ex.Message);
             return (false, null, null);
         }
     }

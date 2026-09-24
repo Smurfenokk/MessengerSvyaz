@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using MessengerSvyaz.Models;
 using MessengerSvyaz.Services;
@@ -15,7 +16,7 @@ public class DashboardViewModel : BaseViewModel
     private readonly ApiService _apiService;
     private readonly SocketService _socketService;
     private readonly MainViewModel _mainViewModel;
-    
+
     private ObservableCollection<User> _users = new();
     private ObservableCollection<ChatPreview> _recentChats = new();
     private string _searchQuery = string.Empty;
@@ -27,7 +28,7 @@ public class DashboardViewModel : BaseViewModel
         _apiService = apiService;
         _socketService = socketService;
         _mainViewModel = mainViewModel;
-        
+
         SearchCommand = new RelayCommand(async _ => await SearchUsersAsync());
         StartChatCommand = new RelayCommand(user => StartChat(user as User));
         OpenChatCommand = new RelayCommand(chat => OpenChat(chat as ChatPreview));
@@ -36,7 +37,11 @@ public class DashboardViewModel : BaseViewModel
         NavigateGroupsCommand = new RelayCommand(_ => _mainViewModel.NavigateToGroups());
         NavigateSupportCommand = new RelayCommand(_ => _mainViewModel.NavigateToSupport());
         LogoutCommand = new RelayCommand(async _ => await _mainViewModel.LogoutAsync());
-        
+
+        _socketService.OnNewMessage += OnNewMessageReceived;
+        _socketService.OnUserOnline += OnUserOnline;
+        _socketService.OnUserOffline += OnUserOffline;
+
         _ = LoadDataAsync();
     }
 
@@ -79,13 +84,45 @@ public class DashboardViewModel : BaseViewModel
     public ICommand NavigateSupportCommand { get; }
     public ICommand LogoutCommand { get; }
 
+    private void OnNewMessageReceived(object? sender, Message msg)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            _ = LoadDataAsync();
+        });
+    }
+
+    private void OnUserOnline(object? sender, string username)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var chat = RecentChats.FirstOrDefault(c => c.Username == username);
+            if (chat != null) chat.Online = true;
+
+            var user = Users.FirstOrDefault(u => u.Username == username);
+            if (user != null) user.IsOnline = true;
+        });
+    }
+
+    private void OnUserOffline(object? sender, string username)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var chat = RecentChats.FirstOrDefault(c => c.Username == username);
+            if (chat != null) chat.Online = false;
+
+            var user = Users.FirstOrDefault(u => u.Username == username);
+            if (user != null) user.IsOnline = false;
+        });
+    }
+
     private async Task LoadDataAsync()
     {
         IsLoading = true;
         try
         {
             var response = await _apiService.GetAsync<RecentChatsResponse>("/api/chat/recent");
-            
+
             if (response.Success && response.Data?.Chats != null)
             {
                 var filtered = response.Data.Chats.Where(c => c.Username != _authService.CurrentUsername).ToList();
@@ -94,7 +131,7 @@ public class DashboardViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading chats: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Error loading chats: " + ex.Message);
         }
         finally
         {
@@ -112,8 +149,8 @@ public class DashboardViewModel : BaseViewModel
 
         try
         {
-            var response = await _apiService.GetAsync<UsersListResponse>($"/api/users/search?query={SearchQuery.Trim()}");
-            
+            var response = await _apiService.GetAsync<UsersListResponse>("/api/users/search?query=" + SearchQuery.Trim());
+
             if (response.Success && response.Data?.Users != null)
             {
                 var found = response.Data.Users
@@ -124,7 +161,7 @@ public class DashboardViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error searching users: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine("Error searching users: " + ex.Message);
         }
     }
 
